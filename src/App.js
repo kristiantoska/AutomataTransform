@@ -4,6 +4,7 @@ import { Svg, Circle, Path, Defs, Text, TextPath } from 'react-native-svg';
 
 import machineToGrid from './utils/machineToGrid';
 import scaleGridToScreen from './utils/scaleGridToScreen';
+import linePath from './utils/linePath';
 import { isAfjd, toAfd } from './utils/machineTransforms';
 
 const { height, width } = Dimensions.get('window');
@@ -12,14 +13,20 @@ const INITIAL_ID = 'q0';
 export default class App extends Component {
   state = {
     machine: {
-      q0: { a: ['q1', 'q2'] },
-      q1: { c: ['q3'] },
+      q0: { a: ['q0', 'q1'], b: ['q0'], c: ['q3'] },
+      q1: { b: ['q2'] },
       q2: {},
       q3: {}
     },
-    machineEnds: ['q1']
+    machineEnds: ['q2'],
+    mode: null
   };
-  nextId = 7;
+  nextId = 4;
+  selectedStates = [];
+
+  addState = () => {
+    this.setState({ mode: 'add' });
+  };
 
   transformMachine = () => {
     const { afdMachine, machineEnds } = toAfd(
@@ -33,28 +40,10 @@ export default class App extends Component {
     );
   };
 
-  renderLines(lines, coordinates) {
+  renderLines(lines, coordinates, radius) {
     return lines.map((line, index) => {
-      const start = coordinates[line.start];
-      const end = coordinates[line.end];
-
-      const curveShift = {
-        x: 0,
-        y: 0
-      };
-
-      if (coordinates[line.start].x === coordinates[line.end].x) {
-        curveShift.x = coordinates[line.start].y < coordinates[line.end].y ? 50 : -50;
-      } else {
-        curveShift.y = coordinates[line.start].x > coordinates[line.end].x ? 50 : -50;
-      }
-
+      const path = linePath(line, coordinates[line.start], coordinates[line.end], radius);
       const curveColor = line.start > line.end ? 'red' : 'green';
-
-      const path = `
-        M${start.x} ${start.y} 
-        Q${(start.x + end.x) / 2 + curveShift.x} ${(start.y + end.y) / 2 + curveShift.y} 
-        ${end.x} ${end.y}`;
 
       return (
         <React.Fragment key={index}>
@@ -102,7 +91,7 @@ export default class App extends Component {
   }
 
   render() {
-    const { machine } = this.state;
+    const { machine, mode } = this.state;
     const canTransform = isAfjd(machine);
 
     const { grid, lines } = machineToGrid(machine, INITIAL_ID);
@@ -111,9 +100,27 @@ export default class App extends Component {
     return (
       <View style={styles.container}>
         <Svg height={height} width={width}>
-          {this.renderLines(lines, coordinates)}
+          {this.renderLines(lines, coordinates, radius)}
           {this.renderStates(grid, coordinates, radius)}
         </Svg>
+
+        <View style={styles.topButtonRow}>
+          <TouchableOpacity onPress={this.addState} style={styles.topButton}>
+            <RNText>O</RNText>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.topButton}>
+            <RNText>/</RNText>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.topButton, { backgroundColor: 'red' }]}>
+            <RNText>xO</RNText>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.topButton, { backgroundColor: 'red' }]}>
+            <RNText>x/</RNText>
+          </TouchableOpacity>
+        </View>
 
         <TouchableOpacity
           onPress={this.transformMachine}
@@ -135,9 +142,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5FCFF'
   },
 
+  topButtonRow: {
+    position: 'absolute',
+    left: 10,
+    top: 10,
+    flexDirection: 'row'
+  },
+
+  topButton: {
+    backgroundColor: 'lightgreen',
+    padding: 5,
+    marginHorizontal: 5
+  },
+
   transformButton: {
     position: 'absolute',
-    right: 10,
+    left: 10,
     bottom: 10,
     padding: 10
   }
