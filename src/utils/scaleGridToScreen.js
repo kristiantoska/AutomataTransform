@@ -18,6 +18,6 @@ export default function (grid, height, width) {
 
   return {
     coordinates,
-    radius: Math.min(Math.min(colWidth, height / maxColumnLength) * 0.25, 50)
+    radius: Math.min(Math.min(colWidth, height / maxColumnLength) * 0.25, 35)
   };
 }
