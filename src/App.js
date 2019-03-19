@@ -21,10 +21,9 @@ const MODES = {
 export default class App extends Component {
   state = {
     machine: {
-      q0: { a: ['q0', 'q1'], b: ['q0'], c: ['q3'] },
-      q1: { b: ['q2'] },
-      q2: {},
-      q3: {}
+      q0: { 0: ['q0', 'q1', 'q2'], 1: ['q1', 'q2'] },
+      q1: { 0: ['q2'], 1: ['q1', 'q2'] },
+      q2: { 0: ['q2'], 1: ['q2'] }
     },
     machineEnds: ['q2'],
 

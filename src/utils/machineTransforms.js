@@ -12,7 +12,11 @@ const joinStates = (machine, states) =>
 
     Object.keys(machine[stateId]).forEach(key => {
       if (mergedState[key]) {
-        temp[key] = mergedState[key].concat(machine[stateId][key]);
+        machine[stateId][key].forEach(endState => {
+          if (mergedState[key].indexOf(endState) === -1) {
+            temp[key] = mergedState[key].concat([endState]);
+          }
+        });
       } else {
         temp[key] = machine[stateId][key];
       }
