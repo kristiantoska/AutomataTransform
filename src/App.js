@@ -1,12 +1,5 @@
 import React, { Component } from 'react';
-import {
-  StyleSheet,
-  View,
-  Dimensions,
-  TouchableOpacity,
-  Text as RNText,
-  TextInput
-} from 'react-native';
+import { StyleSheet, View, Dimensions, TouchableOpacity, Text as RNText } from 'react-native';
 import { Svg, Circle, Path, Defs, Text, TextPath } from 'react-native-svg';
 import Dialog from 'react-native-dialog';
 
@@ -14,14 +7,15 @@ import machineToGrid from './utils/machineToGrid';
 import scaleGridToScreen from './utils/scaleGridToScreen';
 import linePath from './utils/linePath';
 import { isAfjd, toAfd } from './utils/machineTransforms';
+import * as StructUtils from './utils/struct';
 
 const { height, width } = Dimensions.get('window');
 const INITIAL_ID = 'q0';
 const MODES = {
-  addState: 0,
-  removeState: 1,
-  addLine: 2,
-  removeLine: 3
+  addState: 'ADD STATE',
+  removeState: 'REMOVE STATE',
+  addLine: 'ADD LINE',
+  removeLine: 'REMOVE LINE'
 };
 
 export default class App extends Component {
@@ -35,14 +29,63 @@ export default class App extends Component {
     machineEnds: ['q2'],
 
     // editing
-    mode: null,
+    mode: MODES.addState,
+    modal: false,
     name: '',
     from: '',
     to: '',
-    with: ''
+    key: '',
+    error: ''
   };
 
-  handleSubmit = () => {};
+  resetFields = (preservedFields = {}, after) => {
+    this.setState(
+      {
+        ...preservedFields,
+        modal: false,
+        name: '',
+        from: '',
+        to: '',
+        key: '',
+        error: ''
+      },
+      after
+    );
+  };
+
+  handleSubmit = lines => {
+    const { machine, mode, name, from, to, key } = this.state;
+    let result = null;
+
+    switch (mode) {
+      case MODES.addState:
+        result = StructUtils.addState(machine, name, from, key);
+        break;
+      case MODES.removeState:
+        result = StructUtils.removeState(machine, name, lines, INITIAL_ID);
+        break;
+      case MODES.addLine:
+        result = StructUtils.addLine(machine, from, to, key);
+        break;
+      case MODES.removeLine:
+        result = StructUtils.removeLine(machine, from, to, key, lines, INITIAL_ID);
+        break;
+      default:
+    }
+
+    console.log(result);
+
+    if (result.error) {
+      this.setState({ error: result.error });
+    } else {
+      this.resetFields(
+        {
+          machine: { [INITIAL_ID]: {} }
+        },
+        () => this.setState({ machine: result.machine })
+      );
+    }
+  };
 
   transformMachine = () => {
     const { afdMachine, machineEnds } = toAfd(
@@ -51,7 +94,7 @@ export default class App extends Component {
       this.state.machineEnds
     );
 
-    this.setState({ machine: { q0: {} } }, () =>
+    this.setState({ machine: { [INITIAL_ID]: {} } }, () =>
       this.setState({ machine: afdMachine, machineEnds })
     );
   };
@@ -59,7 +102,7 @@ export default class App extends Component {
   renderLines(lines, coordinates, radius) {
     return lines.map((line, index) => {
       const path = linePath(line, coordinates[line.start], coordinates[line.end], radius);
-      const curveColor = line.start > line.end ? 'red' : 'green';
+      const curveColor = coordinates[line.start].x > coordinates[line.end].x ? 'red' : 'green';
 
       return (
         <React.Fragment key={index}>
@@ -107,7 +150,7 @@ export default class App extends Component {
   }
 
   render() {
-    const { machine, mode } = this.state;
+    const { machine, mode, modal, name, from, to, key, error } = this.state;
     const canTransform = isAfjd(machine);
 
     const { grid, lines } = machineToGrid(machine, INITIAL_ID);
@@ -123,51 +166,73 @@ export default class App extends Component {
         <View style={styles.topButtonRow}>
           <TouchableOpacity
             style={styles.topButton}
-            onPress={() => this.setState({ mode: MODES.addState })}
+            onPress={() => this.setState({ mode: MODES.addState, modal: true })}
           >
             <RNText>O</RNText>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.topButton}
-            onPress={() => this.setState({ mode: MODES.addLine })}
+            onPress={() => this.setState({ mode: MODES.addLine, modal: true })}
           >
             <RNText>/</RNText>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.topButton, { backgroundColor: 'red' }]}
-            onPress={() => this.setState({ mode: MODES.removeState })}
+            onPress={() => this.setState({ mode: MODES.removeState, modal: true })}
           >
             <RNText>xO</RNText>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.topButton, { backgroundColor: 'red' }]}
-            onPress={() => this.setState({ mode: MODES.removeLine })}
+            onPress={() => this.setState({ mode: MODES.removeLine, modal: true })}
           >
             <RNText>x/</RNText>
           </TouchableOpacity>
         </View>
 
-        {mode !== null && (
-          <View style={[styles.topButtonRow, { left: null, right: 10 }]}>
-            <TouchableOpacity style={styles.topButton} onPress={this.handleSubmit}>
-              <RNText>Y</RNText>
-            </TouchableOpacity>
+        <Dialog.Container visible={modal}>
+          <Dialog.Title>{mode}</Dialog.Title>
 
-            <TouchableOpacity
-              style={[styles.topButton, { backgroundColor: 'red' }]}
-              onPress={() => this.setState({ mode: null })}
-            >
-              <RNText>N</RNText>
-            </TouchableOpacity>
-          </View>
-        )}
+          {(mode === MODES.addState || mode === MODES.removeState) && (
+            <Dialog.Input
+              placeholder="name"
+              value={name}
+              onChangeText={val => this.setState({ name: val })}
+              autoCapitalize="none"
+            />
+          )}
+          {mode !== MODES.removeState && (
+            <Dialog.Input
+              placeholder="from"
+              value={from}
+              onChangeText={val => this.setState({ from: val })}
+              autoCapitalize="none"
+            />
+          )}
+          {(mode === MODES.addLine || mode === MODES.removeLine) && (
+            <Dialog.Input
+              placeholder="to"
+              value={to}
+              onChangeText={val => this.setState({ to: val })}
+              autoCapitalize="none"
+            />
+          )}
+          {mode !== MODES.removeState && (
+            <Dialog.Input
+              placeholder="key"
+              value={key}
+              onChangeText={val => this.setState({ key: val })}
+              autoCapitalize="none"
+            />
+          )}
 
-        <Dialog.Container visible={mode !== null}>
-          <Dialog.Button label="Cancel" onPress={() => this.setState({ mode: null })} />
-          <Dialog.Button label="Delete" onPress={this.handleSubmit} />
+          <Dialog.Description style={{ color: 'red' }}>{error}</Dialog.Description>
+
+          <Dialog.Button label="Cancel" onPress={this.resetFields} />
+          <Dialog.Button label="Submit" onPress={() => this.handleSubmit(lines)} />
         </Dialog.Container>
 
         <TouchableOpacity
