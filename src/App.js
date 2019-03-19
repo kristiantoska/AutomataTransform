@@ -1,6 +1,14 @@
 import React, { Component } from 'react';
-import { StyleSheet, View, Dimensions, TouchableOpacity, Text as RNText } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  Dimensions,
+  TouchableOpacity,
+  Text as RNText,
+  TextInput
+} from 'react-native';
 import { Svg, Circle, Path, Defs, Text, TextPath } from 'react-native-svg';
+import Dialog from 'react-native-dialog';
 
 import machineToGrid from './utils/machineToGrid';
 import scaleGridToScreen from './utils/scaleGridToScreen';
@@ -9,6 +17,12 @@ import { isAfjd, toAfd } from './utils/machineTransforms';
 
 const { height, width } = Dimensions.get('window');
 const INITIAL_ID = 'q0';
+const MODES = {
+  addState: 0,
+  removeState: 1,
+  addLine: 2,
+  removeLine: 3
+};
 
 export default class App extends Component {
   state = {
@@ -19,14 +33,16 @@ export default class App extends Component {
       q3: {}
     },
     machineEnds: ['q2'],
-    mode: null
-  };
-  nextId = 4;
-  selectedStates = [];
 
-  addState = () => {
-    this.setState({ mode: 'add' });
+    // editing
+    mode: null,
+    name: '',
+    from: '',
+    to: '',
+    with: ''
   };
+
+  handleSubmit = () => {};
 
   transformMachine = () => {
     const { afdMachine, machineEnds } = toAfd(
@@ -105,22 +121,54 @@ export default class App extends Component {
         </Svg>
 
         <View style={styles.topButtonRow}>
-          <TouchableOpacity onPress={this.addState} style={styles.topButton}>
+          <TouchableOpacity
+            style={styles.topButton}
+            onPress={() => this.setState({ mode: MODES.addState })}
+          >
             <RNText>O</RNText>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.topButton}>
+          <TouchableOpacity
+            style={styles.topButton}
+            onPress={() => this.setState({ mode: MODES.addLine })}
+          >
             <RNText>/</RNText>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.topButton, { backgroundColor: 'red' }]}>
+          <TouchableOpacity
+            style={[styles.topButton, { backgroundColor: 'red' }]}
+            onPress={() => this.setState({ mode: MODES.removeState })}
+          >
             <RNText>xO</RNText>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.topButton, { backgroundColor: 'red' }]}>
+          <TouchableOpacity
+            style={[styles.topButton, { backgroundColor: 'red' }]}
+            onPress={() => this.setState({ mode: MODES.removeLine })}
+          >
             <RNText>x/</RNText>
           </TouchableOpacity>
         </View>
+
+        {mode !== null && (
+          <View style={[styles.topButtonRow, { left: null, right: 10 }]}>
+            <TouchableOpacity style={styles.topButton} onPress={this.handleSubmit}>
+              <RNText>Y</RNText>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.topButton, { backgroundColor: 'red' }]}
+              onPress={() => this.setState({ mode: null })}
+            >
+              <RNText>N</RNText>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <Dialog.Container visible={mode !== null}>
+          <Dialog.Button label="Cancel" onPress={() => this.setState({ mode: null })} />
+          <Dialog.Button label="Delete" onPress={this.handleSubmit} />
+        </Dialog.Container>
 
         <TouchableOpacity
           onPress={this.transformMachine}
