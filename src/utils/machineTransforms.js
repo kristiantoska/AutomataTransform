@@ -1,3 +1,7 @@
+import { joinStates, joinStateObj, removeArrDuplicates } from './machineUtils';
+import { EPSILON } from '../config/symbols';
+
+// IS AFJD?
 export function isAfjd(machine) {
   return Object.keys(machine).some(machineKey =>
     Object.keys(machine[machineKey]).some(
@@ -6,24 +10,49 @@ export function isAfjd(machine) {
   );
 }
 
-const joinStates = (machine, states) =>
-  states.reduce((mergedState, stateId) => {
-    const temp = {};
+// HAS EPSILON?
+export function hasEpsilon(machine) {
+  return Object.keys(machine).some(machineKey =>
+    Object.keys(machine[machineKey]).some(transitionKey => transitionKey === EPSILON)
+  );
+}
 
-    Object.keys(machine[stateId]).forEach(key => {
-      if (mergedState[key]) {
-        machine[stateId][key].forEach(endState => {
-          if (mergedState[key].indexOf(endState) === -1) {
-            temp[key] = mergedState[key].concat([endState]);
-          }
-        });
-      } else {
-        temp[key] = machine[stateId][key];
+export function toAfjd(machine, initialId, machineEnds) {
+  const afjdMachine = {};
+  let nextStates = [initialId];
+
+  while (nextStates.length > 0) {
+    let tempStates = [];
+
+    nextStates.forEach(stateId => {
+      let newState = machine[stateId];
+
+      const finalStatesIds = removeArrDuplicates(
+        Object.keys(newState).reduce((acc, cur) => acc.concat(newState[cur]), [])
+      ).filter(key => key !== stateId);
+
+      if (!afjdMachine[stateId]) {
+        tempStates = tempStates.concat(finalStatesIds);
+
+        if (newState[EPSILON]) {
+          const otherStatesJoin = joinStates(machine, finalStatesIds);
+
+          newState = Object.keys(newState)
+            .filter(key => key !== EPSILON)
+            .reduce((acc, cur) => ({ ...acc, [cur]: newState[cur] }), {});
+
+          newState = joinStateObj([newState, otherStatesJoin]);
+        }
+
+        afjdMachine[stateId] = newState;
       }
     });
 
-    return { ...mergedState, ...temp };
-  }, {});
+    nextStates = tempStates;
+  }
+
+  return { machine: afjdMachine, machineEnds };
+}
 
 export function toAfd(machine, initialId, machineEnds) {
   let afdMachine = { [initialId]: {} };
@@ -82,5 +111,5 @@ export function toAfd(machine, initialId, machineEnds) {
     {}
   );
 
-  return { afdMachine, machineEnds: newEnds };
+  return { machine: afdMachine, machineEnds: newEnds };
 }

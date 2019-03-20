@@ -6,8 +6,9 @@ import Dialog from 'react-native-dialog';
 import machineToGrid from './utils/machineToGrid';
 import scaleGridToScreen from './utils/scaleGridToScreen';
 import linePath from './utils/linePath';
-import { isAfjd, toAfd } from './utils/machineTransforms';
+import { hasEpsilon, isAfjd, toAfd, toAfjd } from './utils/machineTransforms';
 import * as StructUtils from './utils/struct';
+import { EPSILON } from './config/symbols';
 
 const { height, width } = Dimensions.get('window');
 const INITIAL_ID = 'q0';
@@ -21,9 +22,10 @@ const MODES = {
 export default class App extends Component {
   state = {
     machine: {
-      q0: { 0: ['q0', 'q1', 'q2'], 1: ['q1', 'q2'] },
-      q1: { 0: ['q2'], 1: ['q1', 'q2'] },
-      q2: { 0: ['q2'], 1: ['q2'] }
+      q0: { 0: ['q0'], [EPSILON]: ['q1'] },
+      q1: { 0: ['q2'], 1: ['q3'] },
+      q2: { [EPSILON]: ['q3'] },
+      q3: { 0: ['q3'], 1: ['q1'] }
     },
     machineEnds: ['q2'],
 
@@ -54,25 +56,24 @@ export default class App extends Component {
 
   handleSubmit = lines => {
     const { machine, mode, name, from, to, key } = this.state;
+    const trueKey = key === '' ? EPSILON : key;
     let result = null;
 
     switch (mode) {
       case MODES.addState:
-        result = StructUtils.addState(machine, name, from, key);
+        result = StructUtils.addState(machine, name, from, trueKey);
         break;
       case MODES.removeState:
         result = StructUtils.removeState(machine, name, lines, INITIAL_ID);
         break;
       case MODES.addLine:
-        result = StructUtils.addLine(machine, from, to, key);
+        result = StructUtils.addLine(machine, from, to, trueKey);
         break;
       case MODES.removeLine:
-        result = StructUtils.removeLine(machine, from, to, key, lines, INITIAL_ID);
+        result = StructUtils.removeLine(machine, from, to, trueKey, lines, INITIAL_ID);
         break;
       default:
     }
-
-    console.log(result);
 
     if (result.error) {
       this.setState({ error: result.error });
@@ -86,16 +87,11 @@ export default class App extends Component {
     }
   };
 
-  transformMachine = () => {
-    const { afdMachine, machineEnds } = toAfd(
-      this.state.machine,
-      INITIAL_ID,
-      this.state.machineEnds
-    );
+  transformMachine = type => {
+    const func = type === EPSILON ? toAfjd : toAfd;
+    const { machine, machineEnds } = func(this.state.machine, INITIAL_ID, this.state.machineEnds);
 
-    this.setState({ machine: { [INITIAL_ID]: {} } }, () =>
-      this.setState({ machine: afdMachine, machineEnds })
-    );
+    this.setState({ machine: { [INITIAL_ID]: {} } }, () => this.setState({ machine, machineEnds }));
   };
 
   renderLines(lines, coordinates, radius) {
@@ -150,7 +146,8 @@ export default class App extends Component {
 
   render() {
     const { machine, mode, modal, name, from, to, key, error } = this.state;
-    const canTransform = isAfjd(machine);
+    const machineType = hasEpsilon(machine) ? EPSILON : isAfjd(machine) ? 'AFJD' : 'AFD';
+    const canTransform = machineType !== 'AFD';
 
     const { grid, lines } = machineToGrid(machine, INITIAL_ID);
     const { coordinates, radius } = scaleGridToScreen(grid, height, width);
@@ -235,11 +232,11 @@ export default class App extends Component {
         </Dialog.Container>
 
         <TouchableOpacity
-          onPress={this.transformMachine}
+          onPress={() => this.transformMachine(machineType)}
           disabled={!canTransform}
           style={[styles.transformButton, { backgroundColor: canTransform ? 'lightgreen' : 'red' }]}
         >
-          <RNText>{canTransform ? 'Transform' : 'AFD'}</RNText>
+          <RNText>{machineType}</RNText>
         </TouchableOpacity>
       </View>
     );

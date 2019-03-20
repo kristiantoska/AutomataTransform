@@ -1,3 +1,5 @@
+import { EPSILON } from '../config/symbols';
+
 const checkValues = (...valArray) => {
   const hasEmpty = valArray.some(val => val.trim() === '');
 
@@ -5,7 +7,7 @@ const checkValues = (...valArray) => {
     return 'Fill all fields';
   }
 
-  const hasWeird = valArray.some(val => !val.match('^[A-z0-9]+$'));
+  const hasWeird = valArray.some(val => !val.match(`^[A-z0-9]|${EPSILON}+$`));
 
   if (hasWeird) {
     return 'ONLY CHARS AND NUMBERS!';
